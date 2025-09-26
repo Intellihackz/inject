@@ -1,0 +1,737 @@
+/* Header Styles */
+.header {
+  background: #4635f3;
+  padding: 1rem 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2rem;
+}
+
+.logo h2 {
+  color: white;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.connect-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.connect-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.connect-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Wallet Info in Header */
+.wallet-info-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.connected-address {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.address-label {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.address-text {
+  font-size: 0.9rem;
+  color: white;
+  font-weight: 600;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: help;
+}
+
+.disconnect-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.disconnect-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.disconnect-button:active {
+  transform: translateY(0);
+}
+
+/* Main Content */
+.main-content {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+  min-height: 100vh;
+}
+
+.main-content h2 {
+  color: #4635f3;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+/* Global body styling */
+body {
+  background: white;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Market Selector Styles */
+.market-selector {
+  border: 2px solid #4635f3;
+  border-radius: 8px;
+  background: white;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(70, 53, 243, 0.1);
+}
+
+.market-selector-container {
+  padding: 1rem 1.5rem;
+}
+
+.market-selector h3 {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #4635f3;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.market-controls {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.pair-dropdown {
+  position: relative;
+}
+
+.pair-select {
+  background: white;
+  border: 2px solid #4635f3;
+  border-radius: 4px;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #4635f3;
+  cursor: pointer;
+  min-width: 150px;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%234635f3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25rem;
+}
+
+.pair-select:hover {
+  border-color: #1e7ba8;
+  box-shadow: 0 0 0 2px rgba(70, 53, 243, 0.1);
+}
+
+.pair-select:focus {
+  outline: none;
+  border-color: #1e7ba8;
+  box-shadow: 0 0 0 3px rgba(70, 53, 243, 0.15);
+}
+
+.loading-message {
+  padding: 1rem;
+  text-align: center;
+  color: #4635f3;
+  font-style: italic;
+}
+
+.market-info {
+  font-size: 0.85rem;
+  color: #4635f3;
+  font-weight: 400;
+}
+
+.market-info-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.token-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #4635f3;
+}
+
+.token-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.token-symbol {
+  font-weight: 600;
+  color: #4635f3;
+}
+
+.separator {
+  color: rgba(70, 53, 243, 0.7);
+  font-weight: 400;
+}
+
+.market-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.85rem;
+}
+
+.detail-item {
+  color: #4635f3;
+}
+
+.status {
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status.active {
+  color: #28a745;
+}
+
+.status.inactive {
+  color: #dc3545;
+}
+
+.status.paused {
+  color: #ffc107;
+}
+
+.price-display {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.current-price {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #4635f3;
+}
+
+.change-24h {
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.change-24h.positive {
+  color: #28a745;
+  background: rgba(40, 167, 69, 0.1);
+}
+
+.change-24h.negative {
+  color: #dc3545;
+  background: rgba(220, 53, 69, 0.1);
+}
+
+/* Three-Column Trading Interface */
+.trading-interface {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin: 2rem 0;
+  height: 600px;
+}
+
+.order-book-column,
+.trading-form-column,
+.user-panel-column {
+  border: 2px solid #4635f3;
+  border-radius: 8px;
+  background: white;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(70, 53, 243, 0.1);
+}
+
+/* Order Book Styles */
+.order-book {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.order-book h3 {
+  margin: 0;
+  padding: 1rem;
+  background: #4635f3;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.order-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 0.5rem 1rem;
+  background: rgba(70, 53, 243, 0.1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4635f3;
+  text-transform: uppercase;
+}
+
+.sell-orders {
+  flex: 1;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow-y: auto;
+}
+
+.buy-orders {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.order-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #e9ecef;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.order-row:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sell-order .price {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.buy-order .price {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.current-price {
+  padding: 0.75rem 1rem;
+  text-align: center;
+  background: #4635f3;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-top: 2px solid #1e7ba8;
+  border-bottom: 2px solid #1e7ba8;
+}
+
+/* Trading Form Styles */
+.trading-form {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.trading-form h3 {
+  margin: 0;
+  padding: 1rem;
+  background: #4635f3;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.order-side-tabs {
+  display: flex;
+  border-bottom: 2px solid rgba(70, 53, 243, 0.2);
+}
+
+.tab {
+  flex: 1;
+  padding: 0.75rem;
+  background: rgba(70, 53, 243, 0.1);
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #4635f3;
+}
+
+.tab.active {
+  background: #4635f3;
+  color: white;
+}
+
+.tab:first-child.active {
+  background: #28a745;
+}
+
+.tab:last-child.active {
+  background: #dc3545;
+}
+
+.order-type-toggle {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(70, 53, 243, 0.2);
+}
+
+.order-type-toggle label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4635f3;
+  margin-bottom: 0.5rem;
+}
+
+.radio-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  margin: 0;
+  color: #4635f3;
+}
+
+.input-group {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(70, 53, 243, 0.2);
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4635f3;
+  margin-bottom: 0.25rem;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 2px solid rgba(70, 53, 243, 0.3);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  transition: border-color 0.2s ease;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #4635f3;
+}
+
+.input-group input:disabled {
+  background: rgba(70, 53, 243, 0.1);
+  color: #4635f3;
+  opacity: 0.7;
+}
+
+.total-display {
+  padding: 1rem;
+  text-align: center;
+  font-weight: 600;
+  color: #4635f3;
+  background: rgba(70, 53, 243, 0.05);
+  border-bottom: 1px solid rgba(70, 53, 243, 0.2);
+}
+
+.place-order-btn {
+  margin: 1rem;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.place-order-btn.buy {
+  background: #28a745;
+  color: white;
+}
+
+.place-order-btn.sell {
+  background: #dc3545;
+  color: white;
+}
+
+.place-order-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.place-order-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* User Panel Styles */
+.user-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-panel h3 {
+  margin: 0;
+  padding: 1rem;
+  background: #4635f3;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.balances-section,
+.active-orders-section {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.balances-section h4,
+.active-orders-section h4 {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: rgba(70, 53, 243, 0.1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4635f3;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.balance-header,
+.orders-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 0.5rem 1rem;
+  background: rgba(70, 53, 243, 0.05);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4635f3;
+  text-transform: uppercase;
+}
+
+.balance-header {
+  grid-template-columns: 1fr 1fr;
+}
+
+.balance-row,
+.active-order-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(70, 53, 243, 0.1);
+  align-items: center;
+}
+
+.balance-row {
+  grid-template-columns: 1fr 1fr;
+}
+
+.side.buy {
+  color: #28a745;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.side.sell {
+  color: #dc3545;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.cancel-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cancel-btn:hover {
+  background: #c82333;
+}
+
+.no-orders {
+  padding: 1rem;
+  text-align: center;
+  color: rgba(70, 53, 243, 0.7);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+/* Order Book Empty States */
+.sell-orders .no-orders,
+.buy-orders .no-orders {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: rgba(70, 53, 243, 0.7);
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .header-container {
+    padding: 0 1rem;
+  }
+  
+  .logo h2 {
+    font-size: 1.25rem;
+  }
+  
+  .connect-button {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  /* Responsive Wallet Info */
+  .wallet-info-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-end;
+  }
+  
+  .connected-address {
+    align-items: center;
+  }
+  
+  .address-text {
+    font-size: 0.8rem;
+  }
+  
+  .disconnect-button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+
+  .market-controls {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .market-info-display {
+    width: 100%;
+  }
+
+  .market-details {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pair-select {
+    width: 100%;
+    min-width: auto;
+  }
+
+  /* Trading Interface Mobile Styles */
+  .trading-interface {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    height: auto;
+  }
+
+  .order-book-column,
+  .trading-form-column,
+  .user-panel-column {
+    height: 400px;
+  }
+
+  .trading-form-column {
+    order: -1; /* Show trading form first on mobile */
+  }
+
+  .order-book-column {
+    height: 300px;
+  }
+
+  .user-panel-column {
+    height: 300px;
+  }
+}
