@@ -62,8 +62,6 @@ A decentralized trading interface built on the Injective Protocol testnet. This 
 ```
 src/
 ├── App.tsx          # Main application component
-├── services.ts      # Injective API service configuration
-├── wallet.ts        # Wallet strategy setup
 ├── App.css          # Application styles
 └── main.tsx         # Application entry point
 ```
@@ -80,10 +78,6 @@ src/
 ## Documentation
 
 For detailed usage instructions and trading guide, see [TUTORIAL.md](./TUTORIAL.md).
-
-## Network Configuration
-
-This application is configured for Injective testnet. To switch networks, modify the `NETWORK` constant in `src/services.ts`.
 
 ## Contributing
 
