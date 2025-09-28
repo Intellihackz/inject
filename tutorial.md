@@ -59,7 +59,6 @@ The main tools we'll use are:
 - `@injectivelabs/networks` - Network configuration for testnet/mainnet
 - React hooks - For managing state and side effects
 - Plain CSS - To make it look good
-- Plain CSS - To make it look good
 
 Alright, let's start building!
 
@@ -71,14 +70,20 @@ Alright, let's start building! The first thing we need to do is create a new Rea
 
 ### Creating Our React App
 
-Let's start by creating a fresh React TypeScript project. Open your terminal and run:
+Let's start by creating a fresh React TypeScript project using Vite. Open your terminal and run:
 
 ```bash
-npx create-react-app injective-trading --template typescript
-cd injective-trading
+npm create vite@latest injective-trading
 ```
 
-This creates a new React app with TypeScript already configured. The `--template typescript` flag saves us from having to set up TypeScript ourselves - pretty convenient!
+Select React and Typescript
+
+```bash
+cd injective-trading
+npm install
+```
+
+This creates a new React app with TypeScript and Vite already configured. Vite is much faster than traditional bundlers and gives us a great development experience with instant hot reload!
 
 ### Installing Injective's SDK
 
@@ -162,7 +167,7 @@ Think of these as different phone lines to different departments at Injective HQ
 Let's make sure everything is working. In your terminal, run:
 
 ```bash
-npm start
+npm run dev
 ```
 
 You should see a basic React app with "Injective Trading Interface" at the top. If you see any errors, double-check that you installed the packages correctly.
