@@ -16,6 +16,7 @@
     "@injectivelabs/ts-types": "^1.16.12",
     "@injectivelabs/utils": "^1.16.12",
     "@injectivelabs/wallet-strategy": "^1.16.12",
+    "@injectivelabs/wallet-ts": "^1.14.41",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

@@ -1,73 +1,98 @@
-# React + TypeScript + Vite
+# Injective Trading App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A decentralized trading interface built on the Injective Protocol testnet. This application allows users to connect their MetaMask wallet, view real-time market data, and place spot trading orders on Injective's decentralized exchange.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Wallet Integration**: Connect with MetaMask to access Injective testnet
+- **Real-time Market Data**: Live orderbook streaming and market information
+- **Spot Trading**: Place limit and market orders on available trading pairs
+- **Portfolio Management**: View token balances and trading positions
+- **Multi-Market Support**: Trade across various spot markets available on Injective
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+- **Frontend**: React 19 + TypeScript + Vite
+- **Blockchain**: Injective Protocol (Testnet)
+- **Wallet**: MetaMask integration
+- **SDK**: Injective Labs SDK (@injectivelabs/sdk-ts)
+- **Styling**: CSS with responsive design
 
-## Expanding the ESLint configuration
+## Quick Start
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. **Install Dependencies**
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+   ```bash
+   npm install
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+2. **Start Development Server**
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+   ```bash
+   npm run dev
+   ```
+
+3. **Connect MetaMask**
+
+   - Ensure MetaMask is installed and configured for Injective testnet
+   - Click "Connect Wallet" in the application
+   - Approve the connection request
+
+4. **Start Trading**
+   - Select a trading pair from the market selector
+   - View real-time orderbook data
+   - Place limit or market orders
+   - Monitor your balances and positions
+
+## Prerequisites
+
+- **MetaMask**: Browser extension installed and configured
+- **Testnet Tokens**: INJ testnet tokens for trading (get from Injective faucet)
+- **Node.js**: Version 18+ recommended
+
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build
+
+## Project Structure
+
+```
+src/
+├── App.tsx          # Main application component
+├── services.ts      # Injective API service configuration
+├── wallet.ts        # Wallet strategy setup
+├── App.css          # Application styles
+└── main.tsx         # Application entry point
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Key Dependencies
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- `@injectivelabs/sdk-ts` - Core Injective Protocol SDK
+- `@injectivelabs/wallet-strategy` - Wallet connection management
+- `@injectivelabs/networks` - Network configuration utilities
+- `react` & `react-dom` - React framework
+- `typescript` - Type safety
+- `vite` - Build tool and dev server
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Documentation
+
+For detailed usage instructions and trading guide, see [TUTORIAL.md](./TUTORIAL.md).
+
+## Network Configuration
+
+This application is configured for Injective testnet. To switch networks, modify the `NETWORK` constant in `src/services.ts`.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly on testnet
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details.
