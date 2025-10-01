@@ -31,6 +31,12 @@ Before we jump in, let's make sure you have everything you need. Don't worry - w
 
 If you're missing any of these, no worries! You can pick them up as we go along.
 
+## Complete Code Repository
+
+📁 **[View the complete source code on GitHub](https://github.com/Intellihackz/inject)**
+
+This tutorial focuses on key concepts and important code snippets. For the complete implementation with all files, styling, and additional features, check out the repository above.
+
 ## What We're Building
 
 Here's what your trading interface will be able to do by the end of this tutorial:
@@ -100,9 +106,12 @@ Let me explain what these packages do:
 
 ### Setting Up Our App Structure
 
-Now let's open up `src/App.tsx` and replace the default code with our trading app foundation. Don't worry about understanding everything at once - I'll explain each piece:
+Let's start by setting up the basic structure of our trading interface. We'll create the main component that will house all our trading functionality.
 
-```typescript
+First, let's set up our essential imports and types:
+
+```tsx
+// filepath: src/App.tsx
 import {
   getInjectiveAddress,
   IndexerGrpcSpotApi,
@@ -111,18 +120,27 @@ import {
   ChainGrpcExchangeApi,
   MsgCreateSpotLimitOrder,
   MsgCreateSpotMarketOrder,
-  getEthereumAddress,
-  getSpotMarketTensMultiplier,
-  spotPriceToChainPriceToFixed,
-  spotQuantityToChainQuantityToFixed,
-  ChainRestAuthApi,
-  createTransaction,
-  getDefaultSubaccountId,
-  TxRestApi,
 } from "@injectivelabs/sdk-ts";
 import { getNetworkEndpoints, Network } from "@injectivelabs/networks";
 import { useState, useEffect, useRef } from "react";
 
+// TypeScript interfaces for our data structures
+interface TradingPair {
+  ticker: string;
+  baseToken: { symbol: string; decimals: number };
+  quoteToken: { symbol: string; decimals: number };
+  marketId: string;
+  minPriceTickSize: string;
+  minQuantityTickSize: string;
+  priceTensMultiplier: number;
+  quantityTensMultiplier: number;
+}
+```
+
+Next, let's create our main component with the essential API clients:
+
+```tsx
+// filepath: src/App.tsx
 function App() {
   // Initialize Injective API clients
   const endpoints = getNetworkEndpoints(Network.Testnet);
@@ -130,7 +148,6 @@ function App() {
   const indexerGrpcSpotStream = new IndexerGrpcSpotStream(endpoints.indexer);
   const chainRestBankApi = new ChainRestBankApi(endpoints.rest);
   const chainGrpcExchangeApi = new ChainGrpcExchangeApi(endpoints.grpc);
-  const restEndpoint = getNetworkEndpoints(Network.Testnet).rest;
 
   return (
     <div className="App">
@@ -143,11 +160,11 @@ function App() {
 export default App;
 ```
 
-Whoa, that's a lot of imports! Let me break down what's happening here:
+Let me break down what's happening here:
 
 **Network Configuration**:
 
-```typescript
+```tsx
 const endpoints = getNetworkEndpoints(Network.Testnet);
 ```
 
@@ -156,7 +173,7 @@ This line grabs all the API endpoints for Injective's testnet. When you're ready
 **API Clients**: Those `new IndexerGrpcSpotApi()` lines create connections to different parts of Injective:
 
 - `indexerGrpcSpotApi` - Gets market data and order books
-- `indexerGrpcSpotStream` - Streams real-time updates
+- `indexerGrpcSpotStream` - Streams real-time updates  
 - `chainRestBankApi` - Checks wallet balances
 - `chainGrpcExchangeApi` - Handles trading operations
 
@@ -182,16 +199,23 @@ Now that we have our project set up, let's add the ability for users to connect 
 
 ### Adding State for Wallet Connection
 
-First, let's add some state variables to track our wallet connection. Add these to your `App` component, right after the API client setup:
+First, let's add some [React state variables](https://react.dev/reference/react/useState) to track our wallet connection. Add these to your `App` component, right after the API client setup:
 
-```typescript
-const [isConnected, setIsConnected] = useState(false);
-const [addresses, setAddresses] = useState<string[]>([]);
-const [injectiveAddresses, setInjectiveAddresses] = useState<string[]>([]);
-const [error, setError] = useState<string>("");
+```tsx
+// filepath: src/App.tsx
+import { useState } from "react";
+
+function App() {
+  // ... existing API client setup ...
+
+  // State management using React's useState hook
+  const [isConnected, setIsConnected] = useState(false);
+  const [addresses, setAddresses] = useState<string[]>([]);
+  const [injectiveAddresses, setInjectiveAddresses] = useState<string[]>([]);
+  const [error, setError] = useState<string>("");
 ```
 
-Here's what each of these does:
+Here's what each of these [state variables](https://react.dev/learn/state-a-components-memory) does:
 
 - `isConnected` - Simple boolean to track if a wallet is connected
 - `addresses` - The actual Ethereum addresses from MetaMask
@@ -202,8 +226,9 @@ Here's what each of these does:
 
 Now let's create the functions that handle connecting to MetaMask. Add these functions inside your `App` component:
 
-```typescript
-// First, a helper function to safely access MetaMask
+```tsx
+// filepath: src/App.tsx
+// Helper function to safely access MetaMask
 const getEthereum = () => {
   if (!window.ethereum) {
     throw new Error("MetaMask extension not installed");
@@ -221,7 +246,7 @@ const connectWallet = async () => {
       method: "eth_requestAccounts",
     });
 
-    // Here's the magic - convert Ethereum addresses to Injective format
+    // Convert Ethereum addresses to Injective format
     const injAddresses = evmAddresses.map(getInjectiveAddress);
 
     // Update our state
@@ -328,48 +353,38 @@ Great! Now we have wallet connection working. Let's make our trading interface a
 
 ### Setting Up Market Data Types
 
-First, let's define what a trading pair looks like. This helps TypeScript understand our data structure and catches errors early. Add this interface above your `App` component:
+First, let's define what a trading pair looks like. This helps TypeScript understand our data structure and catches errors early:
 
-```typescript
+```tsx
+// filepath: src/App.tsx
 interface TradingPair {
   marketId: string;
   ticker: string;
   baseDenom: string;
   quoteDenom: string;
   marketStatus: string;
-  makerFeeRate: string;
-  takerFeeRate: string;
-  serviceProviderFee: string;
-  minNotional: number;
-  minPriceTickSize: number;
-  minQuantityTickSize: number;
   baseToken?: {
     name: string;
     symbol: string;
     decimals: number;
-    logo?: string;
-    address?: string;
-    coinGeckoId?: string;
   };
   quoteToken?: {
     name: string;
     symbol: string;
     decimals: number;
-    logo?: string;
-    address?: string;
-    coinGeckoId?: string;
-    tokenType?: string;
   };
 }
 ```
 
-Don't worry about all these fields for now - the important ones are `ticker` (like "INJ/USDT"), `marketId` (a unique identifier), and `marketStatus` (whether it's active).
+The important fields here are `ticker` (like "INJ/USDT"), `marketId` (unique identifier), and `marketStatus` (whether it's active).
 
 ### Adding State for Markets
 
-Now let's add some state variables to track our market data. Add these with your other state variables:
+Now let's add some [React state variables](https://react.dev/reference/react/useState) to track our market data:
 
-```typescript
+```tsx
+// filepath: src/App.tsx
+// Add these with your other state variables
 const [selectedPair, setSelectedPair] = useState<string>("");
 const [tradingPairs, setTradingPairs] = useState<TradingPair[]>([]);
 const [marketsLoading, setMarketsLoading] = useState(true);
@@ -385,9 +400,13 @@ Here's what each does:
 
 ### Fetching Markets from Injective
 
-Now for the exciting part - let's actually fetch real market data! Add this `useEffect` hook in your component:
+Now for the exciting part - let's actually fetch real market data! We'll use [React's useEffect hook](https://react.dev/reference/react/useEffect) to load this data when the component first renders:
 
-```typescript
+```tsx
+// filepath: src/App.tsx
+import { useEffect } from "react";
+
+// Add this useEffect inside your App component
 useEffect(() => {
   const fetchMarkets = async () => {
     try {
@@ -396,8 +415,7 @@ useEffect(() => {
 
       console.log("Fetching markets from Injective testnet...");
       const markets = await indexerGrpcSpotApi.fetchMarkets();
-      console.log("Markets fetched:", markets);
-
+      
       // Clean up the data for easier use
       const formattedMarkets: TradingPair[] = markets.map((market) => ({
         marketId: market.marketId,
@@ -405,12 +423,6 @@ useEffect(() => {
         baseDenom: market.baseDenom,
         quoteDenom: market.quoteDenom,
         marketStatus: market.marketStatus,
-        makerFeeRate: market.makerFeeRate,
-        takerFeeRate: market.takerFeeRate,
-        serviceProviderFee: market.serviceProviderFee,
-        minNotional: market.minNotional,
-        minPriceTickSize: market.minPriceTickSize,
-        minQuantityTickSize: market.minQuantityTickSize,
         baseToken: market.baseToken,
         quoteToken: market.quoteToken,
       }));
@@ -435,10 +447,10 @@ useEffect(() => {
 }, []); // Empty dependency array means this runs once when component mounts
 ```
 
-This function does a few important things:
+This function:
 
 1. **Calls Injective's API** to get all available spot markets
-2. **Formats the data** into our TypeScript interface
+2. **Formats the data** into our TypeScript interface  
 3. **Handles errors** gracefully if something goes wrong
 4. **Sets a default selection** so users don't see an empty dropdown
 
@@ -447,6 +459,7 @@ This function does a few important things:
 Now let's create a dropdown where users can choose which market to trade. Add this helper function first:
 
 ```typescript
+// filepath: src/App.tsx
 const getCurrentPairData = () => {
   return (
     tradingPairs.find((pair) => pair.ticker === selectedPair) ||
@@ -458,6 +471,7 @@ const getCurrentPairData = () => {
 Then update your JSX to include the market selector. Add this after your header:
 
 ```typescript
+// filepath: src/App.tsx
 <div className="market-selector">
   <h3>Choose Market</h3>
   {marketsLoading ? (
@@ -517,9 +531,10 @@ The gap between the highest buy price and lowest sell price is called the "sprea
 
 ### Setting Up Order Book Types
 
-Let's define what an order book entry looks like. Add this interface with your other types:
+Let's define what an order book entry looks like:
 
-```typescript
+```tsx
+// filepath: src/App.tsx
 interface OrderBookEntry {
   price: string;
   quantity: string;
@@ -527,33 +542,32 @@ interface OrderBookEntry {
 }
 ```
 
-Pretty simple - each order has a price, quantity, and timestamp.
-
 ### Adding State for the Order Book
 
-Now let's add state variables to track our order book data:
+Now let's add [React state variables](https://react.dev/reference/react/useState) to track our order book data:
 
-```typescript
+```tsx
+// filepath: src/App.tsx
+import { useRef } from "react";
+
+// Add these state variables
 const [buyOrders, setBuyOrders] = useState<OrderBookEntry[]>([]);
 const [sellOrders, setSellOrders] = useState<OrderBookEntry[]>([]);
 const [orderbookLoading, setOrderbookLoading] = useState(true);
 const [currentPrice, setCurrentPrice] = useState<number>(0);
+
+// Ref for managing WebSocket connections
 const streamRef = useRef<any>(null);
 ```
 
-Here's what each does:
-
-- `buyOrders` - Array of current buy orders
-- `sellOrders` - Array of current sell orders  
-- `orderbookLoading` - Show loading state while connecting
-- `currentPrice` - The mid-market price (between best bid and ask)
-- `streamRef` - Reference to the WebSocket stream so we can clean it up
+Learn more about [useRef](https://react.dev/reference/react/useRef) for managing WebSocket connections.
 
 ### Creating the Real-Time Stream
 
-Now for the cool part - let's connect to Injective's real-time order book stream! This will give us live updates as orders come and go. Add this `useEffect`:
+Now for the cool part - let's connect to Injective's real-time order book stream! We'll use [React's useEffect](https://react.dev/reference/react/useEffect) to manage the WebSocket connection:
 
-```typescript
+```tsx
+// filepath: src/App.tsx
 useEffect(() => {
   if (!selectedPair || tradingPairs.length === 0) return;
 
@@ -568,62 +582,38 @@ useEffect(() => {
   );
 
   const callback = (orderbooks: any) => {
-    console.log("Orderbook update received:", orderbooks);
-    
     try {
-      let orderbook = null;
-
-      // The API can return data in different formats, so we handle all cases
-      if (orderbooks?.orderbook) {
-        orderbook = orderbooks.orderbook;
-      } else if (
-        orderbooks &&
-        Array.isArray(orderbooks) &&
-        orderbooks.length > 0 &&
-        orderbooks[0]?.orderbook
-      ) {
-        orderbook = orderbooks[0].orderbook;
-      } else if (orderbooks?.buys || orderbooks?.sells) {
-        orderbook = orderbooks;
-      } else {
-        orderbook = orderbooks;
-      }
-
+      const orderbook = orderbooks?.orderbook || orderbooks;
+      
       if (orderbook && (orderbook.buys || orderbook.sells)) {
-        // Process buy orders (people wanting to buy)
+        // Process buy orders (top 10)
         const processedBuyOrders: OrderBookEntry[] = orderbook.buys
-          ? orderbook.buys
-              .slice(0, 10) // Show top 10 price levels
-              .map((order: any) => ({
-                price: order.price,
-                quantity: order.quantity,
-                timestamp: order.timestamp || Date.now(),
-              }))
+          ? orderbook.buys.slice(0, 10).map((order: any) => ({
+              price: order.price,
+              quantity: order.quantity,
+              timestamp: order.timestamp || Date.now(),
+            }))
           : [];
 
-        // Process sell orders (people wanting to sell)
+        // Process sell orders (top 10)
         const processedSellOrders: OrderBookEntry[] = orderbook.sells
-          ? orderbook.sells
-              .slice(0, 10) // Show top 10 price levels
-              .map((order: any) => ({
-                price: order.price,
-                quantity: order.quantity,
-                timestamp: order.timestamp || Date.now(),
-              }))
+          ? orderbook.sells.slice(0, 10).map((order: any) => ({
+              price: order.price,
+              quantity: order.quantity,
+              timestamp: order.timestamp || Date.now(),
+            }))
           : [];
 
         setBuyOrders(processedBuyOrders);
         setSellOrders(processedSellOrders);
         
-        // Calculate current market price (midpoint between best bid and ask)
+        // Calculate current market price
         if (processedBuyOrders.length > 0 && processedSellOrders.length > 0) {
           const bestBid = parseFloat(processedBuyOrders[0].price);
           const bestAsk = parseFloat(processedSellOrders[0].price);
           setCurrentPrice((bestBid + bestAsk) / 2);
         }
         
-        setOrderbookLoading(false);
-      } else {
         setOrderbookLoading(false);
       }
     } catch (err) {
@@ -632,40 +622,38 @@ useEffect(() => {
     }
   };
 
-  const streamFnArgs = {
-    marketIds: [currentMarket.marketId],
-    callback,
-  };
-
   try {
-    streamRef.current = streamFn(streamFnArgs);
+    streamRef.current = streamFn({
+      marketIds: [currentMarket.marketId],
+      callback,
+    });
   } catch (err) {
     console.error("Error starting orderbook stream:", err);
     setOrderbookLoading(false);
   }
 
-  // Cleanup function - super important for WebSockets!
+  // Cleanup function - important for WebSockets!
   return () => {
     if (streamRef.current) {
-      console.log("Cleaning up orderbook stream");
       streamRef.current = null;
     }
   };
-}, [selectedPair, tradingPairs]); // Re-run when the selected market changes
+}, [selectedPair, tradingPairs]);
 ```
 
-This is doing a lot! The key things to understand:
+This WebSocket connection:
 
-1. **WebSocket Connection**: We're opening a real-time connection to Injective
-2. **Data Processing**: The callback function runs every time new order book data comes in
-3. **Error Handling**: If something goes wrong, we handle it gracefully
-4. **Cleanup**: When the component unmounts or market changes, we close the connection
+1. **Connects** to Injective's real-time order book stream
+2. **Processes** incoming buy and sell orders
+3. **Calculates** the current market price
+4. **Cleans up** when the component unmounts or market changes
 
 ### Building the Order Book UI
 
 Now let's create the visual order book. First, add a helper function for when users click on prices:
 
 ```typescript
+// filepath: src/App.tsx
 const handlePriceClick = (clickedPrice: string) => {
   setPrice(clickedPrice); // We'll add this state variable in the next step
 };
@@ -674,6 +662,7 @@ const handlePriceClick = (clickedPrice: string) => {
 Then add this to your JSX after the market selector:
 
 ```typescript
+// filepath: src/App.tsx
 <div className="order-book">
   <h3>Live Order Book</h3>
 
@@ -783,6 +772,7 @@ Think of it like placing an order at a restaurant - you specify what you want (q
 First, let's define the types and state variables we'll need. Add these type definitions at the top of your file with the other interfaces:
 
 ```typescript
+// filepath: src/App.tsx
 type OrderSide = "buy" | "sell";
 type OrderType = "market" | "limit";
 ```
@@ -790,6 +780,7 @@ type OrderType = "market" | "limit";
 Now add these state variables with your other state declarations:
 
 ```typescript
+// filepath: src/App.tsx
 const [orderSide, setOrderSide] = useState<OrderSide>("buy");
 const [orderType, setOrderType] = useState<OrderType>("limit");
 const [price, setPrice] = useState<string>("");
@@ -808,6 +799,7 @@ Here's what each state variable does:
 Let's create a helper function that automatically calculates the total cost of the order. This gives users instant feedback about how much they're about to spend:
 
 ```typescript
+// filepath: src/App.tsx
 const calculateTotal = () => {
   const priceNum = parseFloat(price || "0");
   const quantityNum = parseFloat(quantity || "0");
@@ -818,6 +810,7 @@ const calculateTotal = () => {
 We'll also add some smart form behavior - when users change any form values, we'll clear any previous success/error messages. Add this `useEffect`:
 
 ```typescript
+// filepath: src/App.tsx
 // Clear order messages when form values change
 useEffect(() => {
   if (orderError || orderSuccess) {
@@ -833,6 +826,7 @@ This creates a smooth user experience - old messages don't stick around when use
 Now for the fun part - let's build the actual form! This will be a comprehensive trading interface with tabs, inputs, and smart validation. Add this to your JSX after the order book:
 
 ```typescript
+// filepath: src/App.tsx
 <div className="trading-form">
   <h3>Place Your Trade</h3>
 
@@ -990,7 +984,7 @@ Next up, we'll implement the actual order placement logic - this is where we'll 
 
 ## Step 6: Making Orders Actually Work - Transaction Signing
 
-This is the exciting part where we connect our beautiful form to the actual blockchain! When users click "Place Order," we need to create a proper blockchain transaction, get it signed by MetaMask, and broadcast it to Injective. It sounds complex, but I'll walk you through each step.
+This is the exciting part where we connect our beautiful form to the actual blockchain! When users click "Place Order," we need to create a proper blockchain transaction, get it signed by MetaMask, and broadcast it to Injective.
 
 ### Understanding Blockchain Trading
 
@@ -1004,11 +998,13 @@ Before we code, let me explain what happens when you place a trading order on a 
 
 Think of it like mailing a letter - you write it, sign it, put a stamp on it, and send it through the postal system.
 
-### Setting Up Order State
+### Step 6a: Setting Up Order State
 
-First, let's add the state variables we need to track the order process. Add these with your other state declarations:
+First, let's add the [React state variables](https://react.dev/reference/react/useState) we need to track the order process:
 
-```typescript
+```tsx
+// filepath: src/App.tsx
+// Add these with your other state declarations
 const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 const [orderError, setOrderError] = useState<string>("");
 const [orderSuccess, setOrderSuccess] = useState<string>("");
@@ -1020,13 +1016,14 @@ These track:
 - `orderError` - Any error messages to show the user
 - `orderSuccess` - Success message with transaction details
 
-### Building the Order Placement Logic
+### Step 6b: Order Validation and Setup
 
-Now for the big function - `handlePlaceOrder`. This is where all the magic happens! Add this function in your component:
+Let's start building our order placement function with proper validation:
 
-```typescript
+```tsx
+// filepath: src/App.tsx
 const handlePlaceOrder = async () => {
-  // First, let's make sure we have everything we need
+  // Validation checks
   if (!price && orderType === "limit") return;
   if (!quantity) return;
   if (!isConnected || injectiveAddresses.length === 0) {
@@ -1048,178 +1045,7 @@ const handlePlaceOrder = async () => {
     console.log("Starting order placement process...");
     
     const injectiveAddress = injectiveAddresses[0];
-
-    // Step 1: Prepare market information for the order
-    const market = {
-      marketId: currentMarket.marketId,
-      baseDecimals: currentMarket.baseToken?.decimals || 18,
-      quoteDecimals: currentMarket.quoteToken?.decimals || 6,
-      minPriceTickSize: currentMarket.minPriceTickSize,
-      minQuantityTickSize: currentMarket.minQuantityTickSize,
-    };
-
-    // Step 2: Get the mathematical multipliers needed for price/quantity conversion
-    // This is super important - Injective needs prices in a specific format!
-    const tensMultipliers = getSpotMarketTensMultiplier({
-      baseDecimals: market.baseDecimals,
-      quoteDecimals: market.quoteDecimals,
-      minPriceTickSize: market.minPriceTickSize,
-      minQuantityTickSize: market.minQuantityTickSize,
-    });
-    
-    const marketWithMultipliers = {
-      ...market,
-      priceTensMultiplier: tensMultipliers.priceTensMultiplier,
-      quantityTensMultiplier: tensMultipliers.quantityTensMultiplier,
-    };
-
-    // Step 3: Create subaccount ID (this is like your trading account on Injective)
-    const ethereumAddress = getEthereumAddress(injectiveAddress);
-    const subaccountIndex = 0; // Most users just use subaccount 0
-    const suffix = "0".repeat(23) + subaccountIndex;
-    const subaccountId = ethereumAddress + suffix;
-
-    // Step 4: Determine order details
-    const orderTypeValue = orderSide === "buy" ? 1 : 2; // 1 = Buy, 2 = Sell
-    const feeRecipient = injectiveAddress; // Who gets maker/taker fees (usually yourself)
-
-    let msg; // This will hold our order message
-
-    if (orderType === "limit") {
-      // For limit orders, we need to convert user-friendly numbers to blockchain format
-      console.log("Creating limit order...");
-      
-      const chainPrice = spotPriceToChainPriceToFixed({
-        value: parseFloat(price),
-        tensMultiplier: marketWithMultipliers.priceTensMultiplier,
-        baseDecimals: marketWithMultipliers.baseDecimals,
-        quoteDecimals: marketWithMultipliers.quoteDecimals,
-      });
-
-      const chainQuantity = spotQuantityToChainQuantityToFixed({
-        value: parseFloat(quantity),
-        tensMultiplier: marketWithMultipliers.quantityTensMultiplier,
-        baseDecimals: marketWithMultipliers.baseDecimals,
-      });
-
-      console.log("Chain price:", chainPrice, "Chain quantity:", chainQuantity);
-
-      // Create the limit order message
-      msg = MsgCreateSpotLimitOrder.fromJSON({
-        subaccountId,
-        injectiveAddress,
-        orderType: orderTypeValue,
-        price: chainPrice,
-        quantity: chainQuantity,
-        marketId: marketWithMultipliers.marketId,
-        feeRecipient: feeRecipient,
-      });
-    } else {
-      // For market orders, we use the best available price from the order book
-      console.log("Creating market order...");
-      
-      const marketPrice = orderSide === "buy"
-        ? sellOrders.length > 0 ? parseFloat(sellOrders[0].price) : parseFloat(price || "0")
-        : buyOrders.length > 0 ? parseFloat(buyOrders[0].price) : parseFloat(price || "0");
-
-      const chainPrice = spotPriceToChainPriceToFixed({
-        value: marketPrice,
-        tensMultiplier: marketWithMultipliers.priceTensMultiplier,
-        baseDecimals: marketWithMultipliers.baseDecimals,
-        quoteDecimals: marketWithMultipliers.quoteDecimals,
-      });
-
-      const chainQuantity = spotQuantityToChainQuantityToFixed({
-        value: parseFloat(quantity),
-        tensMultiplier: marketWithMultipliers.quantityTensMultiplier,
-        baseDecimals: marketWithMultipliers.baseDecimals,
-      });
-
-      // Create the market order message
-      msg = MsgCreateSpotMarketOrder.fromJSON({
-        subaccountId,
-        injectiveAddress,
-        orderType: orderTypeValue,
-        price: chainPrice,
-        quantity: chainQuantity,
-        marketId: marketWithMultipliers.marketId,
-        feeRecipient: feeRecipient,
-      });
-    }
-
-    // Step 5: Get account information needed for transaction creation
-    console.log("Fetching account details...");
-    const accountDetailsApi = new ChainRestAuthApi(endpoints.rest);
-    const accountDetails = await accountDetailsApi.fetchAccount(injectiveAddress);
-
-    // Extract the important account info
-    const baseAccount = accountDetails.account.base_account || accountDetails.account;
-    const pubKey = baseAccount.pub_key?.key || "";
-    const sequence = parseInt(baseAccount.sequence, 10);
-    const accountNumber = parseInt(baseAccount.account_number, 10);
-
-    console.log("Account sequence:", sequence, "Account number:", accountNumber);
-
-    // Step 6: Create the transaction
-    const { signBytes, txRaw } = createTransaction({
-      message: msg,
-      memo: `${orderType.toUpperCase()} ${orderSide.toUpperCase()} order via Injective Trading App`,
-      fee: {
-        amount: [{ amount: "400000000000000000", denom: "inj" }], // 0.4 INJ gas fee
-        gas: "400000",
-      },
-      pubKey: pubKey,
-      sequence: sequence,
-      accountNumber: accountNumber,
-      chainId: "injective-888", // Testnet chain ID
-    });
-
-    // Step 7: Sign the transaction with MetaMask
-    console.log("Requesting signature from MetaMask...");
-    const ethereum = getEthereum();
-    const signBytesHex = "0x" + Buffer.from(signBytes).toString("hex");
-
-    const signature = await ethereum.request({
-      method: "personal_sign",
-      params: [signBytesHex, addresses[0]],
-    });
-
-    console.log("Transaction signed successfully!");
-
-    // Step 8: Create the final signed transaction
-    const signedTxRaw = {
-      ...txRaw,
-      signatures: [Buffer.from(signature.slice(2), "hex")],
-    };
-
-    // Step 9: Broadcast to the blockchain!
-    console.log("Broadcasting transaction to Injective...");
-    const txRestApi = new TxRestApi(restEndpoint);
-    const txResponse = await txRestApi.broadcast(signedTxRaw);
-    
-    // Step 10: Wait for confirmation
-    const response = await txRestApi.fetchTxPoll(txResponse.txHash);
-    
-    console.log("Transaction confirmed:", response);
-
-    // Show success message to user
-    setOrderSuccess(`✅ Order placed successfully!
-                    Market: ${currentMarket.ticker}
-                    Type: ${orderType.toUpperCase()} ${orderSide.toUpperCase()}
-                    Quantity: ${quantity}
-                    ${orderType === "limit" ? `Price: ${price}` : "Market Order"}
-                    
-                    Transaction Hash: ${txResponse.txHash}`);
-
-    // Clear the form for the next order
-    setPrice("");
-    setQuantity("");
-
-    // Refresh user balances after a short delay (gives blockchain time to update)
-    setTimeout(() => {
-      refreshUserData(); // We'll implement this in the next step
-    }, 2000);
-
+    // ... rest of the function will be broken down below
   } catch (err) {
     console.error("Order placement failed:", err);
     setOrderError(err instanceof Error ? err.message : "Failed to place order");
@@ -1229,11 +1055,94 @@ const handlePlaceOrder = async () => {
 };
 ```
 
+### Step 6c: Market Information and Multipliers
+
+Next, we need to prepare the market information and mathematical multipliers for price conversion:
+
+```tsx
+// filepath: src/App.tsx
+// Inside the try block of handlePlaceOrder
+// Step 1: Prepare market information
+const market = {
+  marketId: currentMarket.marketId,
+  baseDecimals: currentMarket.baseToken?.decimals || 18,
+  quoteDecimals: currentMarket.quoteToken?.decimals || 6,
+  minPriceTickSize: currentMarket.minPriceTickSize,
+  minQuantityTickSize: currentMarket.minQuantityTickSize,
+};
+
+// Step 2: Get mathematical multipliers for price/quantity conversion
+const tensMultipliers = getSpotMarketTensMultiplier({
+  baseDecimals: market.baseDecimals,
+  quoteDecimals: market.quoteDecimals,
+  minPriceTickSize: market.minPriceTickSize,
+  minQuantityTickSize: market.minQuantityTickSize,
+});
+
+const marketWithMultipliers = {
+  ...market,
+  priceTensMultiplier: tensMultipliers.priceTensMultiplier,
+  quantityTensMultiplier: tensMultipliers.quantityTensMultiplier,
+};
+```
+
+### Step 6d: Creating Order Messages
+
+Now we'll create the order message for the blockchain:
+
+```tsx
+// filepath: src/App.tsx
+// Step 3: Create subaccount ID (your trading account on Injective)
+const ethereumAddress = getEthereumAddress(injectiveAddress);
+const subaccountIndex = 0; // Most users use subaccount 0
+const suffix = "0".repeat(23) + subaccountIndex;
+const subaccountId = ethereumAddress + suffix;
+
+// Step 4: Determine order details
+const orderTypeValue = orderSide === "buy" ? 1 : 2; // 1 = Buy, 2 = Sell
+const feeRecipient = injectiveAddress;
+
+let msg; // This will hold our order message
+
+if (orderType === "limit") {
+  // Convert user-friendly numbers to blockchain format
+  const chainPrice = spotPriceToChainPriceToFixed({
+    value: parseFloat(price),
+    tensMultiplier: marketWithMultipliers.priceTensMultiplier,
+    baseDecimals: marketWithMultipliers.baseDecimals,
+    quoteDecimals: marketWithMultipliers.quoteDecimals,
+  });
+
+  const chainQuantity = spotQuantityToChainQuantityToFixed({
+    value: parseFloat(quantity),
+    tensMultiplier: marketWithMultipliers.quantityTensMultiplier,
+    baseDecimals: marketWithMultipliers.baseDecimals,
+  });
+
+  // Create the limit order message
+  msg = MsgCreateSpotLimitOrder.fromJSON({
+    subaccountId,
+    injectiveAddress,
+    orderType: orderTypeValue,
+    price: chainPrice,
+    quantity: chainQuantity,
+    marketId: marketWithMultipliers.marketId,
+    feeRecipient: feeRecipient,
+  });
+} else {
+  // Market order logic (similar pattern)
+  // ... see complete implementation in repository
+}
+```
+
+For the complete `handlePlaceOrder` function including transaction creation, signing, and broadcasting, check the [full implementation in the repository](https://github.com/Intellihackz/inject/blob/main/src/App.tsx).
+
 ### Adding Message Display Components
 
 Now we need to show success and error messages to users. Add this helper function:
 
 ```typescript
+// filepath: src/App.tsx
 const clearOrderMessages = () => {
   setOrderError("");
   setOrderSuccess("");
@@ -1243,6 +1152,7 @@ const clearOrderMessages = () => {
 And add these message components to your trading form JSX (after the place order button):
 
 ```typescript
+// filepath: src/App.tsx
 {orderError && (
   <div className="order-error" style={{
     padding: "0.5rem 1rem",
@@ -1349,6 +1259,7 @@ Think of it like your bank account dashboard - you want to see your balance, rec
 First, let's define what account information looks like. Add these interfaces with your other type definitions:
 
 ```typescript
+// filepath: src/App.tsx
 interface TokenBalance {
   symbol: string;
   amount: number;
@@ -1374,6 +1285,7 @@ interface Position {
 Now let's add state variables to track user account data. Add these with your other state variables:
 
 ```typescript
+// filepath: src/App.tsx
 const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
 const [positions, setPositions] = useState<Position[]>([]);
 const [balancesLoading, setBalancesLoading] = useState(false);
@@ -1393,6 +1305,7 @@ These track:
 Let's create a function to fetch all the tokens in a user's wallet. This is trickier than it sounds because token names on blockchains can be quite complex:
 
 ```typescript
+// filepath: src/App.tsx
 const fetchUserBalances = async (injectiveAddress: string) => {
   try {
     setBalancesLoading(true);
@@ -1462,6 +1375,7 @@ This function does a lot of smart formatting to make blockchain token names read
 Now let's fetch any active trading positions. This is more complex because we need to match position data with market information:
 
 ```typescript
+// filepath: src/App.tsx
 const fetchUserPositions = async (injectiveAddress: string) => {
   try {
     setPositionsLoading(true);
@@ -1543,6 +1457,7 @@ const fetchUserPositions = async (injectiveAddress: string) => {
 Let's automatically fetch account data when users connect their wallet. Add this `useEffect`:
 
 ```typescript
+// filepath: src/App.tsx
 // Automatically fetch user data when wallet connects
 useEffect(() => {
   if (isConnected && injectiveAddresses.length > 0) {
@@ -1560,6 +1475,7 @@ useEffect(() => {
 Now let's create the UI to display all this information. First, add a refresh function:
 
 ```typescript
+// filepath: src/App.tsx
 const refreshUserData = () => {
   if (isConnected && injectiveAddresses.length > 0) {
     const primaryAddress = injectiveAddresses[0];
@@ -1573,6 +1489,7 @@ const refreshUserData = () => {
 Now add the user panel JSX after your trading form:
 
 ```typescript
+// filepath: src/App.tsx
 <div className="user-panel">
   <div className="user-panel-header" style={{
     display: "flex",
@@ -1742,9 +1659,12 @@ Think of CSS like decorating a house - we first set up the rooms (layout), then 
 
 ### Creating Our Stylesheet
 
-First, let's create a comprehensive CSS file. Make sure you have an `App.css` file in your `src` folder, then replace its contents with our professional styling:
+The styling for a professional trading interface requires quite a bit of CSS. Rather than overwhelming this tutorial with hundreds of lines of CSS, let's show you the key concepts and then link to the complete stylesheet.
+
+Here's a sample of the main styling approach:
 
 ```css
+/* filepath: src/App.css */
 /* Reset and Base Styles */
 .App {
   max-width: 1200px;
@@ -1755,7 +1675,7 @@ First, let's create a comprehensive CSS file. Make sure you have an `App.css` fi
   min-height: 100vh;
 }
 
-/* Header - The top navigation bar */
+/* Header with gradient background */
 .header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -1765,18 +1685,7 @@ First, let's create a comprehensive CSS file. Make sure you have an `App.css` fi
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.header-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo h2 {
-  margin: 0;
-  font-size: 1.5rem;
-}
-
-/* Wallet Connection Buttons */
+/* Interactive buttons with hover effects */
 .connect-button {
   background: #4CAF50;
   color: white;
@@ -1785,7 +1694,7 @@ First, let's create a comprehensive CSS file. Make sure you have an `App.css` fi
   border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .connect-button:hover {
@@ -1793,43 +1702,7 @@ First, let's create a comprehensive CSS file. Make sure you have an `App.css` fi
   transform: translateY(-1px);
 }
 
-.disconnect-button {
-  background: #f44336;
-  color: white;
-  border: none;
-  padding: 0.3rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
-}
-
-.disconnect-button:hover {
-  background: #da190b;
-  transform: translateY(-1px);
-}
-
-.wallet-info-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.connected-address {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.address-text {
-  font-family: monospace;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-}
-
-/* Main Content Layout - Three column grid */
+/* Three-column responsive layout */
 .main-container {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -1837,502 +1710,41 @@ First, let's create a comprehensive CSS file. Make sure you have an `App.css` fi
   margin-bottom: 2rem;
 }
 
-/* Market Selector Styling */
-.market-selector {
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s ease;
-}
-
-.market-selector:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.market-selector h3 {
-  margin: 0 0 1rem 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.pair-select {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  background: white;
-  cursor: pointer;
-  transition: border-color 0.3s ease;
-}
-
-.pair-select:focus {
-  border-color: #667eea;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-}
-
-/* Order Book Styling - The live order display */
-.order-book {
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s ease;
-}
-
-.order-book:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.order-book h3 {
-  margin: 0 0 1rem 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.order-header {
-  display: flex;
-  justify-content: space-between;
-  font-weight: bold;
-  color: #666;
-  font-size: 0.8rem;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.3rem;
-  border-bottom: 1px solid #eee;
-}
-
-.order-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.3rem 0.5rem;
-  margin: 0.1rem 0;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: all 0.2s ease;
-}
-
-.order-row:hover {
-  background: rgba(0, 0, 0, 0.05);
-  transform: scale(1.02);
-}
-
-.buy-order {
-  color: #4CAF50;
-  border-left: 3px solid transparent;
-}
-
-.buy-order:hover {
-  border-left-color: #4CAF50;
-  background: rgba(76, 175, 80, 0.1);
-}
-
-.sell-order {
-  color: #f44336;
-  border-left: 3px solid transparent;
-}
-
-.sell-order:hover {
-  border-left-color: #f44336;
-  background: rgba(244, 67, 54, 0.1);
-}
-
-.current-price {
-  text-align: center;
-  padding: 0.5rem;
-  margin: 0.5rem 0;
-  background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
-  border-radius: 4px;
-  font-weight: bold;
-  color: #333;
-  border: 1px solid #ddd;
-}
-
-/* Trading Form - The heart of our interface */
-.trading-form {
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s ease;
-}
-
-.trading-form:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.trading-form h3 {
-  margin: 0 0 1rem 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-/* Buy/Sell Tabs */
-.order-side-tabs {
-  display: flex;
-  margin-bottom: 1rem;
-}
-
-.tab {
-  flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  background: #f8f9fa;
-  cursor: pointer;
-  font-weight: bold;
-  transition: all 0.3s ease;
-  font-size: 0.9rem;
-}
-
-.tab:first-child {
-  border-radius: 4px 0 0 4px;
-}
-
-.tab:last-child {
-  border-radius: 0 4px 4px 0;
-  border-left: none;
-}
-
-.tab.active {
-  background: #007bff;
-  color: white;
-  border-color: #007bff;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-}
-
-.tab:hover:not(.active) {
-  background: #e9ecef;
-}
-
-/* Order Type Toggle */
-.order-type-toggle {
-  margin-bottom: 1rem;
-}
-
-.order-type-toggle label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #555;
-}
-
-.radio-group {
-  display: flex;
-  gap: 1rem;
-}
-
-.radio-group label {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  cursor: pointer;
-  font-weight: normal;
-  margin-bottom: 0;
-}
-
-.radio-group input[type="radio"] {
-  cursor: pointer;
-}
-
-/* Form Inputs */
-.input-group {
-  margin-bottom: 1rem;
-}
-
-.input-group label {
-  display: block;
-  margin-bottom: 0.3rem;
-  font-weight: 500;
-  color: #555;
-}
-
-.input-group input {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
-}
-
-.input-group input:focus {
-  border-color: #667eea;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-}
-
-.input-group input:disabled {
-  background-color: #f5f5f5;
-  color: #666;
-  cursor: not-allowed;
-}
-
-/* Total Display */
-.total-display {
-  text-align: center;
-  font-weight: bold;
-  margin: 1rem 0;
-  padding: 0.5rem;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 4px;
-  border: 1px solid #dee2e6;
-}
-
-/* Place Order Button - The main action */
-.place-order-btn {
-  width: 100%;
-  padding: 0.75rem;
-  border: none;
-  border-radius: 4px;
-  font-weight: bold;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.place-order-btn.buy {
-  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-  color: white;
-  box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3);
-}
-
-.place-order-btn.buy:hover:not(:disabled) {
-  background: linear-gradient(135deg, #45a049 0%, #3e8e41 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
-}
-
-.place-order-btn.sell {
-  background: linear-gradient(135deg, #f44336 0%, #da190b 100%);
-  color: white;
-  box-shadow: 0 2px 4px rgba(244, 67, 54, 0.3);
-}
-
-.place-order-btn.sell:hover:not(:disabled) {
-  background: linear-gradient(135deg, #da190b 0%, #c62828 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(244, 67, 54, 0.4);
-}
-
-.place-order-btn:disabled {
-  background: #ccc !important;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* User Panel - Account information display */
-.user-panel {
-  background: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-top: 2rem;
-  transition: box-shadow 0.3s ease;
-}
-
-.user-panel:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.user-panel h3, .user-panel h4 {
-  margin: 0 0 1rem 0;
-  color: #333;
-}
-
-.user-panel h3 {
-  font-size: 1.1rem;
-}
-
-.user-panel h4 {
-  font-size: 1rem;
-  margin-top: 1.5rem;
-}
-
-.balance-header,
-.orders-header {
-  display: flex;
-  justify-content: space-between;
-  font-weight: bold;
-  color: #666;
-  font-size: 0.8rem;
-  margin-bottom: 0.5rem;
-  padding: 0.3rem 0.5rem;
-  border-bottom: 1px solid #eee;
-}
-
-.balance-row,
-.active-order-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.3rem 0.5rem;
-  margin: 0.1rem 0;
-  font-size: 0.85rem;
-  border-radius: 3px;
-  transition: background-color 0.2s ease;
-}
-
-.balance-row:nth-child(even),
-.active-order-row:nth-child(even) {
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.balance-row:hover,
-.active-order-row:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.side.long {
-  color: #4CAF50;
-  font-weight: bold;
-}
-
-.side.short {
-  color: #f44336;
-  font-weight: bold;
-}
-
-.side.unknown {
-  color: #666;
-}
-
-/* Loading and Error States - User feedback */
-.loading-message {
-  text-align: center;
-  padding: 1rem;
-  color: #666;
-  font-style: italic;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.loading-message::before {
-  content: '⟳';
-  animation: spin 1s linear infinite;
-  font-size: 1.2em;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.error-message {
-  background: #ffebee;
-  color: #c62828;
-  padding: 0.75rem;
-  border-radius: 4px;
-  border: 1px solid #ffcdd2;
-  margin: 1rem 0;
-  position: relative;
-}
-
-.error-message strong {
-  display: block;
-  margin-bottom: 0.3rem;
-}
-
-.no-orders,
-.no-balances {
-  text-align: center;
-  padding: 1rem;
-  color: #999;
-  font-style: italic;
-  font-size: 0.8rem;
-}
-
-/* Success Messages */
-.order-success {
-  background: #f0fff4;
-  color: #22543d;
-  padding: 0.75rem;
-  border-radius: 4px;
-  border: 1px solid #9ae6b4;
-  margin: 1rem 0;
-  position: relative;
-  white-space: pre-line;
-}
-
-.order-success strong {
-  display: block;
-  margin-bottom: 0.3rem;
-}
-
-/* Responsive Design - Mobile friendly */
-@media (max-width: 768px) {
-  .main-container {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-  
-  .header-container {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
-  }
-  
-  .wallet-info-header {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .App {
-    padding: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .header {
-    padding: 1rem;
-  }
-  
-  .radio-group {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .order-side-tabs {
-    flex-direction: column;
-  }
-  
-  .tab:first-child {
-    border-radius: 4px 4px 0 0;
-  }
-  
-  .tab:last-child {
-    border-radius: 0 0 4px 4px;
-    border-left: 1px solid #ddd;
-    border-top: none;
-  }
-}
-
-/* Custom scrollbar for webkit browsers */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
+/* ... and much more styling for order books, forms, etc. */
 ```
+
+### 📁 Get the Complete CSS File
+
+**[Copy the complete CSS from the repository](https://github.com/Intellihackz/inject/blob/main/src/App.css)**
+
+The complete stylesheet includes:
+
+- **Professional color scheme** - Blue gradients for headers, green/red for trading actions
+- **Card-style components** - Clean panels with shadows and hover effects
+- **Responsive grid layout** - Three-column design that adapts to mobile
+- **Interactive animations** - Smooth transitions and hover states
+- **Trading-specific styling** - Order book styling, form validation states
+- **Mobile responsiveness** - Works perfectly on all device sizes
+
+Simply copy the entire CSS file from the repository link above and paste it into your `src/App.css` file.
+
+### What These Styles Achieve
+
+The complete CSS provides:
+
+- **Professional Trading Look** - Matches the visual style of commercial trading platforms
+- **Interactive Feedback** - Hover animations and transitions make the interface feel responsive
+- **Mobile-First Design** - Grid layout automatically adjusts for smaller screens
+- **Accessibility** - Proper contrast ratios and focus states for keyboard navigation
+- **Performance Optimized** - GPU-accelerated animations using `transform` instead of position changes
+
+---
+
+**💡 Important Note:** The complete CSS file is quite large (500+ lines) and would make this tutorial too long.
+
+**[📁 Copy the complete CSS from here](https://github.com/Intellihackz/inject/blob/main/src/App.css)** and paste it into your `src/App.css` file.
+
+---
 
 ### Importing the Styles
 

@@ -59,7 +59,7 @@ A decentralized trading interface built on the Injective Protocol testnet. This 
 
 ## Project Structure
 
-```
+```bash
 src/
 ├── App.tsx          # Main application component
 ├── App.css          # Application styles
@@ -69,7 +69,6 @@ src/
 ## Key Dependencies
 
 - `@injectivelabs/sdk-ts` - Core Injective Protocol SDK
-- `@injectivelabs/wallet-strategy` - Wallet connection management
 - `@injectivelabs/networks` - Network configuration utilities
 - `react` & `react-dom` - React framework
 - `typescript` - Type safety
