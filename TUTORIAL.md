@@ -175,11 +175,21 @@ This line grabs all the API endpoints for Injective's testnet. When you're ready
 - `indexerGrpcSpotApi` - Gets market data and order books
 - `indexerGrpcSpotStream` - Streams real-time updates  
 - `chainRestBankApi` - Checks wallet balances
-- `chainGrpcExchangeApi` - Handles trading operations
+- `chainGrpcExchangeApi` - Get wallet trading positions
+
+These clients map to Injective's documentation:
+
+- `indexerGrpcSpotApi` - Gets market data and order books (see <https://docs.injective.network/developers-native/query-indexer/spot#fetch-markets>).
+
+- `indexerGrpcSpotStream` - Streams real-time updates (see <https://docs.injective.network/developers-native/query-indexer-stream/spot#stream-the-spot-orderbook> ).
+
+- `chainRestBankApi` - Checks wallet balances (see <https://docs.injective.network/developers-native/query-chain/bank#fetching-injective-addresss-balances>).
+
+- `chainGrpcExchangeApi` - Handles trading operations (see <https://docs.injective.network/developers-native/query-chain/exchange#fetch-the-pending-trading-rewards-points-for-injective-addresses>).
 
 Think of these as different phone lines to different departments at Injective HQ.
 
-### Test It Out
+### Try It Out
 
 Let's make sure everything is working. In your terminal, run:
 
@@ -226,6 +236,8 @@ Here's what each of these [state variables](https://react.dev/learn/state-a-comp
 
 Now let's create the functions that handle connecting to MetaMask. Add these functions inside your `App` component:
 
+**Important Note**: MetaMask and other EVM wallets inject a `window.ethereum` object into your browser when they're installed. This object is a standard interface that any EVM-compatible DApp can use to interact with the wallet. Even though we're building on Injective (not Ethereum - they're separate blockchains), Injective supports EVM wallets because it's EVM-compatible. This means we can use MetaMask to connect and sign transactions, then convert the addresses to work with Injective's blockchain.
+
 ```tsx
 // filepath: src/App.tsx
 // Helper function to safely access MetaMask
@@ -271,6 +283,8 @@ const disconnectWallet = () => {
 ```
 
 The most important part here is the address conversion. Ethereum addresses (like `0x1234...`) need to be converted to Injective's format (like `inj1234...`) - that's what `getInjectiveAddress()` does for us.
+
+For example, the Ethereum address `0xbcef77fa01d59138a494ff468ba9f6a8b2ee12f4` converts to the Injective address `inj1hnhh07sp6kgn3fy5largh20k4zewuyh5qsca2p`. They represent the same wallet, just in different formats for their respective blockchains.
 
 ### Creating the UI
 
@@ -507,7 +521,15 @@ Save your file and check your browser. You should now see:
 2. Real trading pairs from Injective testnet (like INJ/USDT, ATOM/USDT)
 3. Each option shows the market status (like "active")
 
-Check your browser console too - you'll see the full market data being logged. Pretty cool that we're pulling real data from a live blockchain!
+![Market Selector Interface](./public/tutotial-images/market.png)
+*Your market selector should look like this - a clean dropdown showing available trading pairs*
+
+Check your browser console too - you'll see the full market data being logged. To open the console: press **F12** (or **Ctrl+Shift+I** on Windows/Linux, **Cmd+Option+I** on Mac), then click the "Console" tab.
+
+![Console Output](./public/tutotial-images/console.png)
+*The browser console shows all the market data being fetched from Injective's blockchain*
+
+Pretty cool that we're pulling real data from a live blockchain!
 
 The key thing to understand here is that we're not just showing dummy data - these are actual trading pairs that people are using to trade on Injective right now. In the next step, we'll start showing real-time order book data for whichever market the user selects.
 
@@ -528,6 +550,10 @@ Before we code, let me quickly explain what an order book is. It's basically two
 - **Sell orders (asks)** - People wanting to sell, sorted from lowest price to highest
 
 The gap between the highest buy price and lowest sell price is called the "spread."
+
+**Important Note**: Most blockchain DEXs (decentralized exchanges) use AMM (Automated Market Maker) formulas for trading, where prices are determined algorithmically by liquidity pools. However, Injective uses a fully **on-chain order book** - the same mechanism used by traditional finance platforms like stock exchanges (NYSE, NASDAQ). This gives traders more control over their entry and exit prices, better price discovery, and the ability to place limit orders, just like professional trading platforms.
+
+**learn more about orderbooks** Check out [Investopedia's guide to order books](https://www.investopedia.com/terms/o/order-book.asp) for a deeper dive into order book mechanics
 
 ### Setting Up Order Book Types
 
@@ -745,6 +771,9 @@ Save your file and check your browser. You should now see:
 3. Current market price in the middle
 4. Real buy orders (in green) at the bottom
 5. Orders updating in real-time as the market moves!
+
+![Live Order Book](./public/tutotial-images/orderbook.png)
+*Your live order book should display real-time buy and sell orders with prices updating as the market moves*
 
 Try clicking on different prices - we'll use this feature in the next step to auto-fill trade forms.
 
@@ -976,6 +1005,9 @@ Save your file and check your browser. You should now see a complete trading for
 4. **Real-time total calculation** showing the cost
 5. **Connection status** that shows helpful messages
 
+![Trading Form Interface](./public/tutotial-images/order.png)
+*Your trading form should display with buy/sell tabs, order type options, price and quantity inputs, and a dynamic place order button*
+
 Try switching between market and limit orders to see how the form adapts. The price input should disable for market orders since they execute at whatever the current market price is.
 
 Next up, we'll implement the actual order placement logic - this is where we'll interact with Injective's blockchain to submit real trades!
@@ -996,7 +1028,7 @@ Before we code, let me explain what happens when you place a trading order on a 
 4. **Broadcast** - We send the signed transaction to Injective's network
 5. **Confirmation** - The blockchain processes it and gives us a transaction hash
 
-Think of it like mailing a letter - you write it, sign it, put a stamp on it, and send it through the postal system.
+Think of it like writing a cheque - you fill in the amount and recipient, sign it to authorize the payment, mail it to the payee, and the bank processes it to complete the transaction.
 
 ### Step 6a: Setting Up Order State
 
@@ -1062,7 +1094,7 @@ Next, we need to prepare the market information and mathematical multipliers for
 ```tsx
 // filepath: src/App.tsx
 // Inside the try block of handlePlaceOrder
-// Step 1: Prepare market information
+// Prepare market information
 const market = {
   marketId: currentMarket.marketId,
   baseDecimals: currentMarket.baseToken?.decimals || 18,
@@ -1071,7 +1103,7 @@ const market = {
   minQuantityTickSize: currentMarket.minQuantityTickSize,
 };
 
-// Step 2: Get mathematical multipliers for price/quantity conversion
+// Get mathematical multipliers for price/quantity conversion
 const tensMultipliers = getSpotMarketTensMultiplier({
   baseDecimals: market.baseDecimals,
   quoteDecimals: market.quoteDecimals,
@@ -1092,13 +1124,13 @@ Now we'll create the order message for the blockchain:
 
 ```tsx
 // filepath: src/App.tsx
-// Step 3: Create subaccount ID (your trading account on Injective)
+// Create subaccount ID (your trading account on Injective)
 const ethereumAddress = getEthereumAddress(injectiveAddress);
 const subaccountIndex = 0; // Most users use subaccount 0
 const suffix = "0".repeat(23) + subaccountIndex;
 const subaccountId = ethereumAddress + suffix;
 
-// Step 4: Determine order details
+// Determine order details
 const orderTypeValue = orderSide === "buy" ? 1 : 2; // 1 = Buy, 2 = Sell
 const feeRecipient = injectiveAddress;
 

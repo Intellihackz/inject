@@ -131,12 +131,12 @@ function App() {
   const [orderSuccess, setOrderSuccess] = useState<string>("");
 
   // Initialize Injective API
-  const endpoints = getNetworkEndpoints(Network.Testnet);
+  const endpoints = getNetworkEndpoints(Network.Mainnet);
   const indexerGrpcSpotApi = new IndexerGrpcSpotApi(endpoints.indexer);
   const indexerGrpcSpotStream = new IndexerGrpcSpotStream(endpoints.indexer);
   const chainRestBankApi = new ChainRestBankApi(endpoints.rest);
   const chainGrpcExchangeApi = new ChainGrpcExchangeApi(endpoints.grpc);
-  const restEndpoint = getNetworkEndpoints(Network.Testnet).rest;
+  const restEndpoint = getNetworkEndpoints(Network.Mainnet).rest;
 
 
   // Debug: Log when orderbook state changes
@@ -233,16 +233,12 @@ function App() {
     );
 
     const callback = (orderbooks: any) => {
-      console.log("Orderbook update received:", orderbooks);
-      console.log("Type of orderbooks:", typeof orderbooks);
-      console.log("Is array:", Array.isArray(orderbooks));
 
       try {
         let orderbook = null;
 
         // Handle different possible data structures
         if (orderbooks?.orderbook) {
-          console.log("Using orderbooks.orderbook");
           orderbook = orderbooks.orderbook;
         } else if (
           orderbooks &&
@@ -250,13 +246,10 @@ function App() {
           orderbooks.length > 0 &&
           orderbooks[0]?.orderbook
         ) {
-          console.log("Using orderbooks[0].orderbook");
           orderbook = orderbooks[0].orderbook;
         } else if (orderbooks?.buys || orderbooks?.sells) {
-          console.log("Using direct orderbooks structure");
           orderbook = orderbooks;
         } else {
-          console.log("Trying to use orderbooks directly as orderbook");
           orderbook = orderbooks;
         }
 
@@ -265,8 +258,7 @@ function App() {
           const processedBuyOrders: OrderBookEntry[] = orderbook.buys
             ? orderbook.buys
                 .slice(0, 10) // Show top 10 levels
-                .map((order: any, index: number) => {
-                  console.log(`Buy order ${index}:`, order);
+                .map((order: any) => {
                   return {
                     price: order.price,
                     quantity: order.quantity,
@@ -279,8 +271,7 @@ function App() {
           const processedSellOrders: OrderBookEntry[] = orderbook.sells
             ? orderbook.sells
                 .slice(0, 10) // Show top 10 levels
-                .map((order: any, index: number) => {
-                  console.log(`Sell order ${index}:`, order);
+                .map((order: any) => {
                   return {
                     price: order.price,
                     quantity: order.quantity,
@@ -289,14 +280,10 @@ function App() {
                 })
             : [];
 
-          console.log("Processed buy orders:", processedBuyOrders.length);
-          console.log("Processed sell orders:", processedSellOrders.length);
-
           setBuyOrders(processedBuyOrders);
           setSellOrders(processedSellOrders);
           setOrderbookLoading(false);
 
-          console.log("UI state updated!");
         } else {
           console.log(
             "No valid orderbook data found, but setting loading to false"
