@@ -1167,7 +1167,7 @@ if (orderType === "limit") {
 }
 ```
 
-For the complete `handlePlaceOrder` function including transaction creation, signing, and broadcasting, check the [full implementation in the repository](https://github.com/Intellihackz/inject/blob/main/src/App.tsx).
+For the complete `handlePlaceOrder` function including transaction creation, signing, and broadcasting, check the [full implementation in the repository](https://github.com/Intellihackz/injective-trading-app-tutorial/blob/main/src/App.tsx).
 
 ### Adding Message Display Components
 
@@ -1747,7 +1747,7 @@ Here's a sample of the main styling approach:
 
 ### 📁 Get the Complete CSS File
 
-**[Copy the complete CSS from the repository](https://github.com/Intellihackz/inject/blob/main/src/App.css)**
+**[Copy the complete CSS from the repository](https://github.com/Intellihackz/injective-trading-app-tutorial/blob/main/src/App.css)**
 
 The complete stylesheet includes:
 
@@ -1774,7 +1774,7 @@ The complete CSS provides:
 
 **💡 Important Note:** The complete CSS file is quite large (500+ lines) and would make this tutorial too long.
 
-**[📁 Copy the complete CSS from here](https://github.com/Intellihackz/inject/blob/main/src/App.css)** and paste it into your `src/App.css` file.
+**[📁 Copy the complete CSS from here](https://github.com/Intellihackz/injective-trading-app-tutorial/blob/main/src/App.css)** and paste it into your `src/App.css` file.
 
 ---
 
