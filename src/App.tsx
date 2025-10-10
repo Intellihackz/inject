@@ -93,6 +93,44 @@ const getEthereum = () => {
   return window.ethereum;
 };
 
+// Format small prices with leading zero compression (like DexScreener)
+// Pass quoteSymbol to display the correct currency (INJ, USDT, etc.)
+const formatSmallPrice = (price: number, quoteSymbol: string = "$"): string => {
+  if (price === 0) return `${quoteSymbol}0.00`;
+  if (price >= 0.0001) {
+    return `${price.toFixed(4)}`;
+  }
+  
+  // Convert to string to count leading zeros
+  const priceStr = price.toFixed(20).replace(/\.?0+$/, ''); // Remove trailing zeros
+  const match = priceStr.match(/^0\.0+/);
+  
+  if (!match) return `${price}`;
+  
+  const leadingZeros = match[0].length - 2; // Subtract "0."
+  
+  // Limit to max 9 leading zeros before showing 0.0₉ format
+  if (leadingZeros > 9) {
+    // For 10+ zeros, use scientific notation or show as 0.0₉ with adjusted significant digits
+    const adjustedZeros = Math.min(leadingZeros, 9);
+    const startPos = match[0].length + (leadingZeros - adjustedZeros);
+    const significantDigits = priceStr.slice(startPos).slice(0, 4);
+    
+    const subscripts = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'];
+    const zeroCount = adjustedZeros.toString().split('').map(d => subscripts[parseInt(d)]).join('');
+    
+    return `0.0${zeroCount}${significantDigits}`;
+  }
+  
+  const significantDigits = priceStr.slice(match[0].length).slice(0, 4);
+  
+  // Use subscript numbers: ₀₁₂₃₄₅₆₇₈₉
+  const subscripts = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'];
+  const zeroCount = leadingZeros.toString().split('').map(d => subscripts[parseInt(d)]).join('');
+  
+  return `0.0${zeroCount}${significantDigits}`;
+};
+
 function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [addresses, setAddresses] = useState<string[]>([]);
@@ -110,7 +148,7 @@ function App() {
   const [orderType, setOrderType] = useState<OrderType>("limit");
   const [price, setPrice] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("");
-  const [currentPrice] = useState<number>(1.242);
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
 
   // Streaming orderbook state
   const [buyOrders, setBuyOrders] = useState<OrderBookEntry[]>([]);
@@ -131,12 +169,12 @@ function App() {
   const [orderSuccess, setOrderSuccess] = useState<string>("");
 
   // Initialize Injective API
-  const endpoints = getNetworkEndpoints(Network.Mainnet);
+  const endpoints = getNetworkEndpoints(Network.Testnet);
   const indexerGrpcSpotApi = new IndexerGrpcSpotApi(endpoints.indexer);
   const indexerGrpcSpotStream = new IndexerGrpcSpotStream(endpoints.indexer);
   const chainRestBankApi = new ChainRestBankApi(endpoints.rest);
   const chainGrpcExchangeApi = new ChainGrpcExchangeApi(endpoints.grpc);
-  const restEndpoint = getNetworkEndpoints(Network.Mainnet).rest;
+  const restEndpoint = getNetworkEndpoints(Network.Testnet).rest;
 
 
   // Debug: Log when orderbook state changes
@@ -223,17 +261,13 @@ function App() {
     if (!currentMarket) return;
 
     console.log(
-      "Starting orderbook stream for market:",
+      "Fetching initial orderbook and starting stream for market:",
       currentMarket.marketId
     );
     setOrderbookLoading(true);
 
-    const streamFn = indexerGrpcSpotStream.streamSpotOrderbookV2.bind(
-      indexerGrpcSpotStream
-    );
-
-    const callback = (orderbooks: any) => {
-
+    // Function to process orderbook data (shared between initial fetch and stream)
+    const processOrderbookData = (orderbooks: any) => {
       try {
         let orderbook = null;
 
@@ -284,6 +318,29 @@ function App() {
           setSellOrders(processedSellOrders);
           setOrderbookLoading(false);
 
+          // Calculate current/mid price from orderbook
+          // Use the midpoint between best bid and best ask
+          if (processedBuyOrders.length > 0 && processedSellOrders.length > 0) {
+            const bestBid = parseFloat(processedBuyOrders[0].price);
+            const bestAsk = parseFloat(processedSellOrders[0].price);
+            const midPrice = (bestBid + bestAsk) / 2;
+            setCurrentPrice(midPrice);
+            console.log(`Current price updated: ${midPrice} (Bid: ${bestBid}, Ask: ${bestAsk})`);
+          } else if (processedBuyOrders.length > 0) {
+            // Only buy orders available, use best bid
+            const bestBid = parseFloat(processedBuyOrders[0].price);
+            setCurrentPrice(bestBid);
+            console.log(`Current price set to best bid: ${bestBid}`);
+          } else if (processedSellOrders.length > 0) {
+            // Only sell orders available, use best ask
+            const bestAsk = parseFloat(processedSellOrders[0].price);
+            setCurrentPrice(bestAsk);
+            console.log(`Current price set to best ask: ${bestAsk}`);
+          }
+
+          console.log(
+            `Processed ${processedBuyOrders.length} buy orders and ${processedSellOrders.length} sell orders`
+          );
         } else {
           console.log(
             "No valid orderbook data found, but setting loading to false"
@@ -297,16 +354,44 @@ function App() {
       }
     };
 
+    // First, fetch the initial orderbook snapshot
+    const fetchInitialOrderbook = async () => {
+      try {
+        console.log("Fetching initial orderbook snapshot...");
+        const initialOrderbook = await indexerGrpcSpotApi.fetchOrderbookV2(
+          currentMarket.marketId
+        );
+        console.log("Initial orderbook fetched:", initialOrderbook);
+        processOrderbookData(initialOrderbook);
+      } catch (err) {
+        console.error("Error fetching initial orderbook:", err);
+        setOrderbookLoading(false);
+      }
+    };
+
+    // Fetch initial data
+    fetchInitialOrderbook();
+
+    // Then setup the stream for real-time updates
+    const streamFn = indexerGrpcSpotStream.streamSpotOrderbookV2.bind(
+      indexerGrpcSpotStream
+    );
+
+    const streamCallback = (orderbooks: any) => {
+      console.log("Received orderbook stream update");
+      processOrderbookData(orderbooks);
+    };
+
     const streamFnArgs = {
       marketIds: [currentMarket.marketId],
-      callback,
+      callback: streamCallback,
     };
 
     try {
+      console.log("Starting orderbook stream...");
       streamRef.current = streamFn(streamFnArgs);
     } catch (err) {
       console.error("Error starting orderbook stream:", err);
-      setOrderbookLoading(false);
     }
 
     // Cleanup function
@@ -323,6 +408,11 @@ function App() {
       tradingPairs.find((pair) => pair.ticker === selectedPair) ||
       tradingPairs[0]
     );
+  };
+
+  const getQuoteSymbol = () => {
+    const currentMarket = getCurrentPairData();
+    return currentMarket?.quoteToken?.symbol || "$";
   };
 
   const fetchUserBalances = async (injectiveAddress: string) => {
@@ -472,17 +562,20 @@ function App() {
   };
 
   const calculateTotal = () => {
-    const priceNum = parseFloat(price || "0");
+    // Use current price for market orders, user input for limit orders
+    const priceNum = orderType === "market" ? currentPrice : parseFloat(price || "0");
     const quantityNum = parseFloat(quantity || "0");
-    return (priceNum * quantityNum).toFixed(2);
+    return priceNum * quantityNum;
   };
 
   const handlePriceClick = (clickedPrice: string) => {
-    setPrice(clickedPrice);
+    // Only allow clicking orderbook prices for limit orders
+    if (orderType === "limit") {
+      setPrice(clickedPrice);
+    }
   };
 
   const handlePlaceOrder = async () => {
-    if (!price && orderType === "limit") return;
     if (!quantity) return;
     if (!isConnected || injectiveAddresses.length === 0) {
       setOrderError("Please connect your wallet first");
@@ -493,6 +586,20 @@ function App() {
     if (!currentMarket) {
       setOrderError("Please select a market first");
       return;
+    }
+
+    // Validate price based on order type
+    if (orderType === "limit") {
+      if (!price || parseFloat(price) <= 0) {
+        setOrderError("Please enter a valid price for limit order");
+        return;
+      }
+    } else {
+      // Market order - check if current price is available
+      if (currentPrice <= 0) {
+        setOrderError("Market price not available yet. Please wait for orderbook to load.");
+        return;
+      }
     }
 
     try {
@@ -548,9 +655,12 @@ function App() {
       let msg;
 
       if (orderType === "limit") {
+        const limitPrice = parseFloat(price);
+        console.log("Limit order - Using price from input:", limitPrice);
+
         // Convert price to chain format
         const chainPrice = spotPriceToChainPriceToFixed({
-          value: parseFloat(price),
+          value: limitPrice,
           tensMultiplier: marketWithMultipliers.priceTensMultiplier,
           baseDecimals: marketWithMultipliers.baseDecimals,
           quoteDecimals: marketWithMultipliers.quoteDecimals,
@@ -564,13 +674,11 @@ function App() {
         });
 
         console.log("Price conversion:", {
-          originalPrice: parseFloat(price),
+          originalPrice: limitPrice,
           chainPrice: chainPrice,
-          formula: `${parseFloat(price)} × 10^(${
+          formula: `${limitPrice} × 10^(${
             marketWithMultipliers.quoteDecimals
-          } - ${marketWithMultipliers.baseDecimals}) = ${parseFloat(
-            price
-          )} × 10^${
+          } - ${marketWithMultipliers.baseDecimals}) = ${limitPrice} × 10^${
             marketWithMultipliers.quoteDecimals -
             marketWithMultipliers.baseDecimals
           }`,
@@ -592,15 +700,23 @@ function App() {
           feeRecipient: feeRecipient,
         });
       } else {
-        // Create market order - for market orders, we still need to provide a price (usually current market price)
-        const marketPrice =
-          orderSide === "buy"
-            ? sellOrders.length > 0
-              ? parseFloat(sellOrders[0].price)
-              : parseFloat(price || "0")
-            : buyOrders.length > 0
-            ? parseFloat(buyOrders[0].price)
-            : parseFloat(price || "0");
+        // Market order - use current mid-market price
+        const marketPrice = currentPrice;
+        
+        console.log(`Market ${orderSide.toUpperCase()} order - Current price check:`, {
+          currentPrice,
+          marketPrice,
+          buyOrdersLength: buyOrders.length,
+          sellOrdersLength: sellOrders.length,
+          bestBid: buyOrders[0]?.price,
+          bestAsk: sellOrders[0]?.price,
+        });
+
+        if (marketPrice <= 0 || isNaN(marketPrice)) {
+          throw new Error(`Invalid market price: ${marketPrice}. Orderbook may not be loaded.`);
+        }
+
+        console.log(`Using market price: ${marketPrice}`);
 
         // Convert price to chain format
         const chainPrice = spotPriceToChainPriceToFixed({
@@ -620,6 +736,7 @@ function App() {
         console.log("Market order price conversion:", {
           originalPrice: marketPrice,
           chainPrice: chainPrice,
+          chainPriceType: typeof chainPrice,
           formula: `${marketPrice} × 10^(${
             marketWithMultipliers.quoteDecimals
           } - ${marketWithMultipliers.baseDecimals}) = ${marketPrice} × 10^${
@@ -936,7 +1053,7 @@ function App() {
                           onClick={() => handlePriceClick(order.price)}
                         >
                           <span className="price">
-                            {parseFloat(order.price).toFixed(6)}
+                            {formatSmallPrice(parseFloat(order.price), getQuoteSymbol())}
                           </span>
                           <span className="quantity">
                             {parseFloat(order.quantity).toFixed(2)}
@@ -950,7 +1067,11 @@ function App() {
 
                   {/* Current Price */}
                   <div className="current-price">
-                    <span>CURRENT: ${currentPrice.toFixed(3)}</span>
+                    <span>
+                      {currentPrice > 0 
+                        ? `${formatSmallPrice(currentPrice, getQuoteSymbol())} ${getQuoteSymbol()}` 
+                        : 'CURRENT: --'}
+                    </span>
                   </div>
 
                   {/* Buy Orders */}
@@ -962,7 +1083,7 @@ function App() {
                         onClick={() => handlePriceClick(order.price)}
                       >
                         <span className="price">
-                          {parseFloat(order.price).toFixed(6)}
+                          {formatSmallPrice(parseFloat(order.price), getQuoteSymbol())}
                         </span>
                         <span className="quantity">
                           {parseFloat(order.quantity).toFixed(2)}
@@ -1026,15 +1147,35 @@ function App() {
 
               {/* Price Input */}
               <div className="input-group">
-                <label>Price</label>
+                <label>Price ({getQuoteSymbol()})</label>
                 <input
                   type="number"
-                  value={price}
+                  value={orderType === "market" ? currentPrice.toFixed(6) : price}
                   onChange={(e) => setPrice(e.target.value)}
                   disabled={orderType === "market"}
                   placeholder="0.000"
                   step="0.001"
                 />
+                {orderType === "limit" && price && parseFloat(price) > 0 && (
+                  <div style={{ 
+                    fontSize: "0.85rem", 
+                    color: "#666", 
+                    marginTop: "4px",
+                    fontFamily: "monospace"
+                  }}>
+                    ≈ {formatSmallPrice(parseFloat(price), getQuoteSymbol())} {getQuoteSymbol()}
+                  </div>
+                )}
+                {orderType === "market" && currentPrice > 0 && (
+                  <div style={{ 
+                    fontSize: "0.85rem", 
+                    color: "#666", 
+                    marginTop: "4px",
+                    fontFamily: "monospace"
+                  }}>
+                    Using current market price: {formatSmallPrice(currentPrice, getQuoteSymbol())} {getQuoteSymbol()}
+                  </div>
+                )}
               </div>
 
               {/* Quantity Input */}
@@ -1051,7 +1192,9 @@ function App() {
 
               {/* Total Calculation */}
               <div className="total-display">
-                <span>Total: ${calculateTotal()}</span>
+                <span>
+                  Total: {formatSmallPrice(calculateTotal(), getQuoteSymbol())} {getQuoteSymbol()}
+                </span>
               </div>
 
               {/* Order Status Messages */}
@@ -1062,10 +1205,12 @@ function App() {
                     padding: "0.5rem 1rem",
                     background: "#fee",
                     color: "#c53030",
-                    fontSize: "0.85rem",
+                    fontSize: "0.75rem",
                     borderRadius: "4px",
                     margin: "0.5rem 1rem",
                     border: "1px solid #fed7d7",
+                    maxHeight: "80px",
+                    overflowY: "auto",
                   }}
                 >
                   <strong>Error:</strong> {orderError}
@@ -1078,6 +1223,7 @@ function App() {
                       color: "#c53030",
                       cursor: "pointer",
                       fontSize: "0.8rem",
+                      marginLeft: "8px",
                     }}
                   >
                     ✕
@@ -1092,11 +1238,13 @@ function App() {
                     padding: "0.5rem 1rem",
                     background: "#f0fff4",
                     color: "#22543d",
-                    fontSize: "0.8rem",
+                    fontSize: "0.75rem",
                     borderRadius: "4px",
                     margin: "0.5rem 1rem",
                     border: "1px solid #9ae6b4",
                     whiteSpace: "pre-line",
+                    maxHeight: "80px",
+                    overflowY: "auto",
                   }}
                 >
                   <strong>Success:</strong> {orderSuccess}
@@ -1109,6 +1257,7 @@ function App() {
                       color: "#22543d",
                       cursor: "pointer",
                       fontSize: "0.8rem",
+                      marginLeft: "8px",
                     }}
                   >
                     ✕

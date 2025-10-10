@@ -542,6 +542,28 @@ The key thing to understand here is that we're not just showing dummy data - the
 
 This is where things get really exciting! We're going to create a live order book that shows real buy and sell orders updating in real-time. Imagine watching the actual heartbeat of trading on Injective - that's what we're building.
 
+### Important Performance Pattern: Fetch First, Then Stream
+
+A critical best practice when working with order books is to **fetch the initial snapshot first**, then connect to the real-time stream. This pattern:
+
+- Provides immediate data to users (better UX)
+- Prevents race conditions between initial load and stream setup
+- Ensures you always have a complete orderbook state
+
+Here's the recommended pattern from Injective's documentation:
+
+```tsx
+// First, fetch the initial orderbook snapshot
+const initialOrderbook = await indexerGrpcSpotApi.fetchOrderbookV2(marketId);
+processOrderbookData(initialOrderbook);
+
+// Then setup the stream for real-time updates
+const stream = indexerGrpcSpotStream.streamSpotOrderbookV2({
+  marketIds: [marketId],
+  callback: processOrderbookData,
+});
+```
+
 ### Understanding Order Books
 
 Before we code, let me quickly explain what an order book is. It's basically two lists:
@@ -590,7 +612,7 @@ Learn more about [useRef](https://react.dev/reference/react/useRef) for managing
 
 ### Creating the Real-Time Stream
 
-Now for the cool part - let's connect to Injective's real-time order book stream! We'll use [React's useEffect](https://react.dev/reference/react/useEffect) to manage the WebSocket connection:
+Now for the cool part - let's connect to Injective's real-time order book stream! We'll use [React's useEffect](https://react.dev/reference/react/useEffect) to manage the WebSocket connection, following the best practice of fetching initial data first:
 
 ```tsx
 // filepath: src/App.tsx
@@ -600,14 +622,11 @@ useEffect(() => {
   const currentMarket = getCurrentPairData();
   if (!currentMarket) return;
 
-  console.log("Starting orderbook stream for market:", currentMarket.marketId);
+  console.log("Fetching initial orderbook and starting stream for market:", currentMarket.marketId);
   setOrderbookLoading(true);
 
-  const streamFn = indexerGrpcSpotStream.streamSpotOrderbookV2.bind(
-    indexerGrpcSpotStream
-  );
-
-  const callback = (orderbooks: any) => {
+  // Shared function to process orderbook data from both initial fetch and stream
+  const processOrderbookData = (orderbooks: any) => {
     try {
       const orderbook = orderbooks?.orderbook || orderbooks;
       
@@ -633,11 +652,17 @@ useEffect(() => {
         setBuyOrders(processedBuyOrders);
         setSellOrders(processedSellOrders);
         
-        // Calculate current market price
+        // Calculate current market price (mid-price between best bid and ask)
         if (processedBuyOrders.length > 0 && processedSellOrders.length > 0) {
           const bestBid = parseFloat(processedBuyOrders[0].price);
           const bestAsk = parseFloat(processedSellOrders[0].price);
-          setCurrentPrice((bestBid + bestAsk) / 2);
+          const midPrice = (bestBid + bestAsk) / 2;
+          setCurrentPrice(midPrice);
+          console.log(`Current price updated: ${midPrice} (Bid: ${bestBid}, Ask: ${bestAsk})`);
+        } else if (processedBuyOrders.length > 0) {
+          setCurrentPrice(parseFloat(processedBuyOrders[0].price));
+        } else if (processedSellOrders.length > 0) {
+          setCurrentPrice(parseFloat(processedSellOrders[0].price));
         }
         
         setOrderbookLoading(false);
@@ -648,35 +673,132 @@ useEffect(() => {
     }
   };
 
+  // First, fetch the initial orderbook snapshot
+  const fetchInitialOrderbook = async () => {
+    try {
+      console.log("Fetching initial orderbook snapshot...");
+      const initialOrderbook = await indexerGrpcSpotApi.fetchOrderbookV2(
+        currentMarket.marketId
+      );
+      console.log("Initial orderbook fetched:", initialOrderbook);
+      processOrderbookData(initialOrderbook);
+    } catch (err) {
+      console.error("Error fetching initial orderbook:", err);
+      setOrderbookLoading(false);
+    }
+  };
+
+  // Fetch initial data
+  fetchInitialOrderbook();
+
+  // Then setup the stream for real-time updates
+  const streamFn = indexerGrpcSpotStream.streamSpotOrderbookV2.bind(
+    indexerGrpcSpotStream
+  );
+
+  const streamCallback = (orderbooks: any) => {
+    console.log("Received orderbook stream update");
+    processOrderbookData(orderbooks);
+  };
+
   try {
     streamRef.current = streamFn({
       marketIds: [currentMarket.marketId],
-      callback,
+      callback: streamCallback,
     });
   } catch (err) {
     console.error("Error starting orderbook stream:", err);
-    setOrderbookLoading(false);
   }
 
   // Cleanup function - important for WebSockets!
   return () => {
     if (streamRef.current) {
+      console.log("Cleaning up orderbook stream");
       streamRef.current = null;
     }
   };
 }, [selectedPair, tradingPairs]);
 ```
 
-This WebSocket connection:
+This implementation:
 
-1. **Connects** to Injective's real-time order book stream
-2. **Processes** incoming buy and sell orders
-3. **Calculates** the current market price
-4. **Cleans up** when the component unmounts or market changes
+1. **Fetches initial data** immediately for instant display
+2. **Processes data** using a shared function for consistency
+3. **Sets up streaming** for real-time updates after initial data loads
+4. **Calculates** the current market price dynamically
+5. **Cleans up** properly when the component unmounts or market changes
+
+### Why This Pattern Matters
+
+The fetch-first-then-stream pattern prevents common issues:
+
+- **No race conditions**: Initial data loads before stream starts
+- **Better UX**: Users see data immediately instead of waiting for first stream update
+- **Consistent state**: Shared processing function ensures data format consistency
+
+### Smart Price Formatting for Tiny Numbers
+
+Before we build the UI, let's add a smart price formatting function. Many tokens (especially memecoins) have very small prices like `0.00005753`, which would normally display as `0.000058` when rounded. Professional DEX platforms like DexScreener use **subscript notation** to compress leading zeros:
+
+- `0.00005753` → `0.0₄5753` (the ₄ means "4 zeros after the decimal")
+- `0.00000002001` → `0.0₇2001` (the ₇ means "7 zeros")
+
+This keeps the display clean while preserving significant digits. Add this function at the top level of your App.tsx:
+
+```typescript
+// filepath: src/App.tsx
+// Format small prices with leading zero compression (like DexScreener)
+const formatSmallPrice = (price: number, quoteSymbol: string = "$"): string => {
+  if (price === 0) return `${quoteSymbol}0.00`;
+  if (price >= 0.0001) {
+    return `${price.toFixed(4)}`;
+  }
+  
+  // Convert to string to count leading zeros
+  const priceStr = price.toFixed(20).replace(/\.?0+$/, ''); // Remove trailing zeros
+  const match = priceStr.match(/^0\.0+/);
+  
+  if (!match) return `${price}`;
+  
+  const leadingZeros = match[0].length - 2; // Subtract "0."
+  
+  // Limit to max 9 leading zeros (prevents subscript going beyond single digits)
+  if (leadingZeros > 9) {
+    const adjustedZeros = Math.min(leadingZeros, 9);
+    const startPos = match[0].length + (leadingZeros - adjustedZeros);
+    const significantDigits = priceStr.slice(startPos).slice(0, 4);
+    
+    const subscripts = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'];
+    const zeroCount = adjustedZeros.toString().split('').map(d => subscripts[parseInt(d)]).join('');
+    
+    return `0.0${zeroCount}${significantDigits}`;
+  }
+  
+  const significantDigits = priceStr.slice(match[0].length).slice(0, 4);
+  
+  // Use subscript numbers: ₀₁₂₃₄₅₆₇₈₉
+  const subscripts = ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'];
+  const zeroCount = leadingZeros.toString().split('').map(d => subscripts[parseInt(d)]).join('');
+  
+  return `0.0${zeroCount}${significantDigits}`;
+};
+```
+
+We'll also need a helper to get the quote token symbol (INJ, USDT, etc.) dynamically:
+
+```typescript
+// filepath: src/App.tsx
+const getQuoteSymbol = () => {
+  const currentMarket = getCurrentPairData();
+  return currentMarket?.quoteToken?.symbol || "$";
+};
+```
+
+**Why This Matters**: Without this formatting, a price like `0.00000000007` would display as `0.00000` (misleading) or take up massive screen space. With subscript compression, it displays as `0.0₁₀7` - clean and accurate!
 
 ### Building the Order Book UI
 
-Now let's create the visual order book. First, add a helper function for when users click on prices:
+Now let's create the visual order book with our smart price formatting. First, add a helper function for when users click on prices:
 
 ```typescript
 // filepath: src/App.tsx
@@ -713,7 +835,8 @@ Then add this to your JSX after the market selector:
               style={{ color: '#f44336', cursor: 'pointer' }}
             >
               <span className="price">
-                {parseFloat(order.price).toFixed(6)}
+                {/* Use smart formatting - shows 0.0₄5753 instead of 0.00005753 */}
+                {formatSmallPrice(parseFloat(order.price), getQuoteSymbol())}
               </span>
               <span className="quantity">
                 {parseFloat(order.quantity).toFixed(2)}
@@ -725,7 +848,7 @@ Then add this to your JSX after the market selector:
         )}
       </div>
 
-      {/* Current Price Display */}
+      {/* Current Price Display - dynamically shows correct quote token */}
       <div className="current-price" style={{ 
         textAlign: 'center', 
         padding: '10px',
@@ -733,7 +856,9 @@ Then add this to your JSX after the market selector:
         margin: '10px 0',
         fontWeight: 'bold'
       }}>
-        Current: ${currentPrice.toFixed(6)}
+        {currentPrice > 0 
+          ? `${formatSmallPrice(currentPrice, getQuoteSymbol())} ${getQuoteSymbol()}` 
+          : 'CURRENT: --'}
       </div>
 
       {/* Buy Orders (Bids) - shown at bottom in green */}
@@ -746,7 +871,8 @@ Then add this to your JSX after the market selector:
             style={{ color: '#4CAF50', cursor: 'pointer' }}
           >
             <span className="price">
-              {parseFloat(order.price).toFixed(6)}
+              {/* Smart formatting for tiny prices */}
+              {formatSmallPrice(parseFloat(order.price), getQuoteSymbol())}
             </span>
             <span className="quantity">
               {parseFloat(order.quantity).toFixed(2)}
@@ -777,7 +903,13 @@ Save your file and check your browser. You should now see:
 
 Try clicking on different prices - we'll use this feature in the next step to auto-fill trade forms.
 
-This is incredibly cool - you're now showing real-time order book data from actual traders on Injective! The numbers you see are real people's buy and sell orders. In the next step, we'll build a trading form so users can place their own orders into this same order book.
+This is incredibly cool - you're now showing real-time order book data from actual traders on Injective! The numbers you see are real people's buy and sell orders, formatted intelligently to handle everything from regular prices to tiny memecoin prices. Notice how:
+
+- **Tiny prices** like `0.00005753` display as `0.0₄5753` (clean and readable)
+- **Quote tokens** show dynamically (INJ, USDT, etc.) based on the selected market
+- **Current price** updates in real-time as the market moves
+
+In the next step, we'll build a trading form so users can place their own orders into this same order book.
 
 ---
 
